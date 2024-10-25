@@ -25,10 +25,8 @@ DfMp3 dfmp3(Serial1);
 You can change the colors of players here
 
 ```ino
-int playerColors[4][3] = {
-  {0, 255, 255},            // Cyan for Player1
-  {0, 255, 0},              // Green for Player2
-  {255, 255, 0},            // Yellow for Player3
-  {255, 0, 255},            // Purple for Player4
+int playerColors[2][3] = {
+  {0, 0, 255},            // Blue for Player1
+  {0, 255, 0},            // Green for Player2
 };
 ```
