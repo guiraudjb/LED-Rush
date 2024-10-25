@@ -10,6 +10,16 @@ LED Rush game for Arduino UNO, with LED and Buttons
 #endif
 ```
 
+```h
+#include <DFMiniMp3.h>
+
+class Mp3Notify; 
+
+typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3; 
+
+DfMp3 dfmp3(Serial1);
+```
+
 ## Small info about the code
 
 You can change the colors of players here
