@@ -17,6 +17,7 @@ int BRIGHTNESS = 10;
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
+int LED5V = 2;
 int boutonP1 = 4; // Numero du PIN du bouton 1
 int boutonP2 = 5; // Numero du PIN du bouton 2
 
@@ -30,7 +31,7 @@ int timer;
 int velocityP1, velocityP2;
 int oldPosP1, oldPosP2;
 
-int playerColors[4][3] = {
+int playerColors[2][3] = {
   {0, 0, 255},
   {0, 255, 0}
 };
@@ -92,11 +93,14 @@ public:
 void setup() {
   Serial.begin(9600);
 
+  pinMode(LED5V, OUTPUT);  
+  digitalWrite(LED5V, HIGH);
+
   dfmp3.begin();
   uint16_t volume = dfmp3.getVolume();
   Serial.print("volume ");
   Serial.println(volume);
-  dfmp3.setVolume(100);
+  dfmp3.setVolume(50);
   dfmp3.playMp3FolderTrack(1);
 
   pinMode(boutonP1, INPUT_PULLUP);
