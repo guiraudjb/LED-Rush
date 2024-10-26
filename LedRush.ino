@@ -17,12 +17,28 @@ int BRIGHTNESS = 10;
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
+#include <TM1637Display.h>
+
+#define CLK 6
+#define DIO 7
+
+TM1637Display display = TM1637Display(CLK, DIO);
+
+const uint8_t win[] = {
+  SEG_F | SEG_E | SEG_D | SEG_C,
+  SEG_B | SEG_C | SEG_D | SEG_E,
+  SEG_B | SEG_C,
+  SEG_E | SEG_G | SEG_C
+};
+
 int LED5V = 2;
 int boutonP1 = 4; // Numero du PIN du bouton 1
 int boutonP2 = 5; // Numero du PIN du bouton 2
 
 int clickP1, clickP2; // Definir le nombre de cliques de chaque joueurs
 int tourP1, tourP2;
+int NombreTours = 5;
+bool winning = false;
 
 int MillisTimer = millis();
 int oldTimer = 0;
@@ -94,13 +110,19 @@ void setup() {
   Serial.begin(9600);
 
   pinMode(LED5V, OUTPUT);  
+  pinMode(9, OUTPUT);
   digitalWrite(LED5V, HIGH);
+  digitalWrite(9, HIGH);
+
+  display.setBrightness(5);
+  display.showNumberDec(02, false, 2, 2);  
+  display.showNumberDec(01, false, 2, 0);   
 
   dfmp3.begin();
   uint16_t volume = dfmp3.getVolume();
+  dfmp3.setVolume(50);
   Serial.print("volume ");
   Serial.println(volume);
-  dfmp3.setVolume(50);
   dfmp3.playMp3FolderTrack(1);
 
   pinMode(boutonP1, INPUT_PULLUP);
@@ -111,27 +133,32 @@ void setup() {
 }
 
 void loop() {
-  if (!digitalRead(boutonP1)) {
+  if (!digitalRead(boutonP1) && winning == false) {
     velocityP1 += 1;
     //Temporisation();
+  } else if (winning == true) {
+    Reset();
   }
-  else if (!digitalRead(boutonP2)) {
+  if (!digitalRead(boutonP2) && winning == false) {
     if (clickP2 >= 3) {
       clickP2 = 0;
-      velocityP2 += 1;
+      velocityP2 += 3;
     }
     //Temporisation();
     clickP2 += 1;
   }
 
-  if (velocityP1 > 150) { velocityP1 = 0; tourP2 = tourP1 + 1; }
+  if (velocityP1 > 150) { velocityP1 = 0; tourP1 = tourP1 + 1; }
   if (velocityP2 > 150) { velocityP2 = 0; tourP2 = tourP2 + 1; }
+
+  if (tourP1 == NombreTours) { Win(1); }
+  if (tourP2 == NombreTours) { Win(2); }
 
   MillisTimer=millis();
   if (MillisTimer - oldTimer > 1000) {
-    if (velocityP1 > 1) {
+    /*if (velocityP1 > 1) {
       velocityP1 -= 1;
-    }
+    }*/
     timer += 1;
     oldTimer = MillisTimer;
   }
@@ -140,19 +167,28 @@ void loop() {
     oldPosP2 = velocityP2;
   }
 
-  pixels.clear();
+  if (winning == false) {
+    display.showNumberDec(tourP1, false, 2, 0);
+    display.showNumberDec(tourP2, false, 2, 2);
 
-  pixels.setPixelColor(oldPosP1 + velocityP1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
-  pixels.setPixelColor(oldPosP1 + velocityP1 + 1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
+    pixels.clear();
 
-  pixels.setPixelColor(velocityP2, pixels.Color(playerColors[1][0], playerColors[1][1], playerColors[1][2]));
-  pixels.setPixelColor(velocityP2 + 1, pixels.Color(playerColors[1][0], playerColors[1][1], playerColors[1][2]));
+    pixels.setPixelColor(oldPosP1 + velocityP1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
+    pixels.setPixelColor(oldPosP1 + velocityP1 + 1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
 
-  pixels.show();
+    pixels.setPixelColor(velocityP2, pixels.Color(playerColors[1][0], playerColors[1][1], playerColors[1][2]));
+    pixels.setPixelColor(velocityP2 + 1, pixels.Color(playerColors[1][0], playerColors[1][1], playerColors[1][2]));
+
+    pixels.show();
+  } else {
+    rainbowCycle(1);
+    delay(5000);
+    Reset();
+  }
 
   debug();
 
-  delay(250);
+  delay(100);
 }
 void Temporisation(){
   int statusLeftButton = digitalRead(boutonP1);
@@ -164,6 +200,15 @@ void Temporisation(){
   }
 }
 
+void Win(int player) {
+  winning = true;
+  tourP1 = 0;
+  tourP2 = 0;
+  dfmp3.setVolume(50);
+  dfmp3.playMp3FolderTrack(2);
+  display.setSegments(win);
+}
+
 void debug() {
   Serial.print("Bouton P1: ");
   Serial.print(digitalRead(boutonP1));
@@ -172,4 +217,67 @@ void debug() {
   Serial.print(" - Acceleration: ");
   Serial.print(oldPosP1 + velocityP1);
   Serial.println("");
+}
+
+void Reset() {
+  pixels.clear();
+  pixels.show();
+  display.showNumberDec(0, false);
+  winning = false;
+  tourP1 = 0;
+  tourP2 = 0;
+  velocityP1 = 0;
+  velocityP2 = 0;
+  clickP1 = 0;
+  clickP2 = 0;
+}
+
+void rainbow(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256; j++) {
+    for(i=0; i<pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, Wheel((i+j) & 255));
+    }
+    pixels.show();
+    delay(wait);
+  }
+}
+
+void rainbowCycle(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+    for(i=0; i< pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, Wheel(((i * 256 / pixels.numPixels()) + j) & 255));
+    }
+    pixels.show();
+    delay(wait);
+  }
+}
+
+
+uint32_t Wheel(byte WheelPos) {
+  State();
+  WheelPos = 255 - WheelPos;
+  if(WheelPos < 85) {
+    return pixels.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  }
+  if(WheelPos < 170) {
+    WheelPos -= 85;
+    return pixels.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+  WheelPos -= 170;
+  return pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+void State() {
+  if (!digitalRead(10)) {
+    pixels.setBrightness(0);
+    pixels.show();
+  } 
+  else if (digitalRead(10)) {
+    pixels.setBrightness(50);
+    pixels.show();
+  }
 }
