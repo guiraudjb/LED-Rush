@@ -1,35 +1,6 @@
-#include <DFMiniMp3.h>
+#include <Wire.h>
+#include <Lycidcrystal_I2C.h>
 
-class Mp3Notify; 
-
-typedef DFMiniMp3<HardwareSerial, Mp3Notify> DfMp3; 
-
-DfMp3 dfmp3(Serial1);
-
-#include <Adafruit_NeoPixel.h>
-#ifdef __AVR__
- #include <avr/power.h> 
-#endif
-
-#define PIN        3 // Numéro du PIn pour les LEDS
-#define NUMPIXELS 150 // Popular NeoPixel ring size
-int BRIGHTNESS = 10;
-
-Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
-
-#include <TM1637Display.h>
-
-#define CLK 6
-#define DIO 7
-
-TM1637Display display = TM1637Display(CLK, DIO);
-
-const uint8_t win[] = {
-  SEG_F | SEG_E | SEG_D | SEG_C,
-  SEG_B | SEG_C | SEG_D | SEG_E,
-  SEG_B | SEG_C,
-  SEG_E | SEG_G | SEG_C
-};
 
 int LED5V = 2;
 int boutonP1 = 4; // Numero du PIN du bouton 1
@@ -52,60 +23,6 @@ int playerColors[2][3] = {
   {0, 255, 0}
 };
 
-class Mp3Notify
-{
-public:
-  static void PrintlnSourceAction(DfMp3_PlaySources source, const char* action)
-  {
-    if (source & DfMp3_PlaySources_Sd) 
-    {
-        Serial.print("SD Card, ");
-    }
-    if (source & DfMp3_PlaySources_Usb) 
-    {
-        Serial.print("USB Disk, ");
-    }
-    if (source & DfMp3_PlaySources_Flash) 
-    {
-        Serial.print("Flash, ");
-    }
-    Serial.println(action);
-  }
-  static void OnError([[maybe_unused]] DfMp3& mp3, uint16_t errorCode)
-  {
-    // see DfMp3_Error for code meaning
-    Serial.println();
-    Serial.print("Com Error ");
-    Serial.println(errorCode);
-  }
-  static void OnPlayFinished([[maybe_unused]] DfMp3& mp3, [[maybe_unused]] DfMp3_PlaySources source, uint16_t track)
-  {
-    Serial.print("Play finished for #");
-    Serial.println(track);  
-
-    // start next track
-    track += 1;
-    // this example will just start back over with 1 after track 3
-    if (track > 3) 
-    {
-      track = 1;
-    }
-    dfmp3.playMp3FolderTrack(track);  // sd:/mp3/0001.mp3, sd:/mp3/0002.mp3, sd:/mp3/0003.mp3
-  }
-  static void OnPlaySourceOnline([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
-    PrintlnSourceAction(source, "online");
-  }
-  static void OnPlaySourceInserted([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
-    PrintlnSourceAction(source, "inserted");
-  }
-  static void OnPlaySourceRemoved([[maybe_unused]] DfMp3& mp3, DfMp3_PlaySources source)
-  {
-    PrintlnSourceAction(source, "removed");
-  }
-};
-
 void setup() {
   Serial.begin(9600);
 
@@ -114,28 +31,18 @@ void setup() {
   digitalWrite(LED5V, HIGH);
   digitalWrite(9, HIGH);
 
-  display.setBrightness(5);
-  display.showNumberDec(02, false, 2, 2);  
-  display.showNumberDec(01, false, 2, 0);   
-
-  dfmp3.begin();
-  uint16_t volume = dfmp3.getVolume();
-  dfmp3.setVolume(50);
-  Serial.print("volume ");
-  Serial.println(volume);
-  dfmp3.playMp3FolderTrack(1);
+  lcd.init();
+  lcd.init();
+  lcd.setBri
 
   pinMode(boutonP1, INPUT_PULLUP);
   pinMode(boutonP2, INPUT_PULLUP);
 
-  pixels.begin();
-  pixels.setBrightness(BRIGHTNESS);
 }
 
 void loop() {
   if (!digitalRead(boutonP1) && winning == false) {
     velocityP1 += 1;
-    //Temporisation();
   } else if (winning == true) {
     Reset();
   }
@@ -144,15 +51,14 @@ void loop() {
       clickP2 = 0;
       velocityP2 += 3;
     }
-    //Temporisation();
     clickP2 += 1;
   }
 
   if (velocityP1 > 150) { velocityP1 = 0; tourP1 = tourP1 + 1; }
   if (velocityP2 > 150) { velocityP2 = 0; tourP2 = tourP2 + 1; }
 
-  if (tourP1 == NombreTours) { Win(1); }
-  if (tourP2 == NombreTours) { Win(2); }
+  if (tourP1 == NombreTours) { EndGame(); }
+  if (tourP2 == NombreTours) { EndGame(); }
 
   MillisTimer=millis();
   if (MillisTimer - oldTimer > 1000) {
@@ -162,19 +68,16 @@ void loop() {
     timer += 1;
     oldTimer = MillisTimer;
   }
-  else if (MillisTimer > 250) {
-    oldPosP1 = velocityP1;
-    oldPosP2 = velocityP2;
-  }
 
   if (winning == false) {
-    display.showNumberDec(tourP1, false, 2, 0);
-    display.showNumberDec(tourP2, false, 2, 2);
+    AfficherTimer();
+    printBigNum(tourP1, 1, 1);
+    printBigNum(tourP2, 16, 1);
 
     pixels.clear();
 
-    pixels.setPixelColor(oldPosP1 + velocityP1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
-    pixels.setPixelColor(oldPosP1 + velocityP1 + 1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
+    pixels.setPixelColor(velocityP1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
+    pixels.setPixelColor(velocityP1 + 1, pixels.Color(playerColors[0][0], playerColors[0][1], playerColors[0][2]));
 
     pixels.setPixelColor(velocityP2, pixels.Color(playerColors[1][0], playerColors[1][1], playerColors[1][2]));
     pixels.setPixelColor(velocityP2 + 1, pixels.Color(playerColors[1][0], playerColors[1][1], playerColors[1][2]));
@@ -190,23 +93,38 @@ void loop() {
 
   delay(100);
 }
-void Temporisation(){
-  int statusLeftButton = digitalRead(boutonP1);
-  int statusRightButton = digitalRead(boutonP2);
-  for (int T = 1; T <= 1000 ; T++){
-    while(statusLeftButton==LOW || statusRightButton==LOW){
-      delay(125);
-    }
+
+void AfficherTimer(){
+  lcd.clear();
+  lcd.setCursor(7, 0);
+  lcd.print("Temps:");
+  String scorestring = String(timer);
+  if (scorestring.length()==3){
+    String centaine = String(scorestring.charAt(0));
+    printBigNum(centaine.toInt(), 5, 1);
+    String decimale = String(scorestring.charAt(1));
+    printBigNum(decimale.toInt(), 8, 1);
+    String unite = String(scorestring.charAt(2));
+    printBigNum(unite.toInt(), 11, 1);
   }
+  else if (scorestring.length()==2){
+    String decimale = String(scorestring.charAt(0));
+    printBigNum(decimale.toInt(), 7, 1);
+    String unite = String(scorestring.charAt(1));
+    printBigNum(unite.toInt(), 10, 1);
+  }
+  else{
+    String unite = String(scorestring.charAt(0));
+    printBigNum(0, 8, 1);
+    printBigNum(unite.toInt(), 11, 1);
+  }
+  
 }
 
-void Win(int player) {
+void EndGame() {
   winning = true;
   tourP1 = 0;
   tourP2 = 0;
-  dfmp3.setVolume(50);
-  dfmp3.playMp3FolderTrack(2);
-  display.setSegments(win);
 }
 
 void debug() {
@@ -222,7 +140,6 @@ void debug() {
 void Reset() {
   pixels.clear();
   pixels.show();
-  display.showNumberDec(0, false);
   winning = false;
   tourP1 = 0;
   tourP2 = 0;
@@ -269,15 +186,4 @@ uint32_t Wheel(byte WheelPos) {
   }
   WheelPos -= 170;
   return pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-}
-
-void State() {
-  if (!digitalRead(10)) {
-    pixels.setBrightness(0);
-    pixels.show();
-  } 
-  else if (digitalRead(10)) {
-    pixels.setBrightness(50);
-    pixels.show();
-  }
 }
