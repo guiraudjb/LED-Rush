@@ -3,14 +3,27 @@
 
 LiquidCrystal_I2C lcd(0x27,20,4);
 
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+ #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
+#endif
+
+#define PIN        6
+#define NUMPIXELS  150
+Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+#define DELAYVAL 350
+
 int LED5V = 2;
-int boutonP1 = 4; // Numero du PIN du bouton 1
+int boutonP1 = 6; // Numero du PIN du bouton 1
 int boutonP2 = 5; // Numero du PIN du bouton 2
+int Buzzer = 4;   // Numero du PIN du Buzzer
 
 int clickP1, clickP2; // Definir le nombre de cliques de chaque joueurs
-int tourP1, tourP2;
+int tourP1 = 0;
+int tourP2 = 0;
 int NombreTours = 5;
 bool winning = false;
+bool start = false;
 
 int MillisTimer = millis();
 int oldTimer = 0;
@@ -178,7 +191,7 @@ struct RGB {
 };
 
 RGB playerColor1 = {0, 0, 255};
-RGB playerColor2 = {0, 255, 0}
+RGB playerColor2 = {0, 255, 0};
 
 RGB mixColors(const RGB& color1, const RGB& color2) {
     RGB mixedColor;
@@ -202,17 +215,22 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
+  pixels.begin();
+
   pinMode(boutonP1, INPUT_PULLUP);
   pinMode(boutonP2, INPUT_PULLUP);
 
 }
 
 void loop() {
-  if (winning == false) {
+  if (winning == false && start == false) {
+    if (!digitalRead(boutonP1)) {
+      EcranGo();
+    }
+  }
+  if (winning == false && start == true) {
     if (!digitalRead(boutonP1) && winning == false) {
       velocityP1 += 1;
-    } else if (winning == true) {
-      Reset();
     }
     if (!digitalRead(boutonP2) && winning == false) {
         velocityP2 += 1;
@@ -243,7 +261,7 @@ void loop() {
     pixels.setPixelColor(velocityP1, pixels.Color(playerColor1.r, playerColor1.g, playerColor1.b));
     pixels.setPixelColor(velocityP1 + 1, pixels.Color(playerColor1.r, playerColor1.b, playerColor1.g));
 
-    pixels.setPixelColor(velocityP2, pixels.Color(playerColor2.r, playerColor2.g; playerColor2.b));
+    pixels.setPixelColor(velocityP2, pixels.Color(playerColor2.r, playerColor2.g, playerColor2.b));
     pixels.setPixelColor(velocityP2 + 1, pixels.Color(playerColor2.r, playerColor2.g, playerColor2.b));
 
     if (velocityP1 == velocityP2) {
@@ -265,6 +283,27 @@ void loop() {
   debug();
 
   delay(100);
+}
+
+void printBigNum(int number, int startCol, int startRow) {
+  // Position cursor to requested position (each char takes 3 cols plus a space col)
+  lcd.setCursor(startCol, startRow);
+  // Each number split over two lines, 3 chars per line. Retrieve character
+  // from the main array to make working with it here a bit easier.
+  uint8_t thisNumber[6];
+  for (int cnt = 0; cnt < 6; cnt++) {
+    thisNumber[cnt] = bigNums[number][cnt];
+  }
+  // First line (top half) of digit
+  for (int cnt = 0; cnt < 3; cnt++) {
+    lcd.print((char)thisNumber[cnt]);
+  }
+  // Now position cursor to next line at same start column for digit
+  lcd.setCursor(startCol, startRow + 1);
+  // 2nd line (bottom half)
+  for (int cnt = 3; cnt < 6; cnt++) {
+    lcd.print((char)thisNumber[cnt]);
+  }
 }
 
 void AfficherTimer(){
@@ -293,6 +332,23 @@ void AfficherTimer(){
   }
   
 }
+
+void EcranGo()
+{
+  if (!start) {
+    lcd.clear();
+    tone(Buzzer,523,1000);
+    delay(1000);  
+    tone(Buzzer,523,1000);
+    delay(1000);
+    printBigNum(18, 7, 1);
+    printBigNum(26, 11, 1);
+    tone(Buzzer,1000,1000); 
+    delay(1000);
+    start = true;
+  } 
+}
+
 
 void EndGame() {
   lcd.clear();
@@ -349,7 +405,6 @@ void rainbowCycle(uint8_t wait) {
 
 
 uint32_t Wheel(byte WheelPos) {
-  State();
   WheelPos = 255 - WheelPos;
   if(WheelPos < 85) {
     return pixels.Color(255 - WheelPos * 3, 0, WheelPos * 3);
