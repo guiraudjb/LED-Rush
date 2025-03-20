@@ -31,6 +31,11 @@ int timer;
 
 int velocityP1, velocityP2;
 int oldPosP1, oldPosP2;
+//la led doit avancer après une pression du bouton uniquement lorsque le bouton est relaché.
+//Utilisation de booleen
+bool b1pressed; 
+bool b2pressed;
+
 
 
 uint8_t blank[] = {
@@ -228,26 +233,49 @@ void loop() {
       EcranGo();
     }
   }
+  //gestion de la course
   if (winning == false && start == true) {
-    if (!digitalRead(boutonP1) && winning == false) {
-      velocityP1 += 1;
+    
+    //gestion bouton joueur 1
+    if (!digitalRead(boutonP1)) {
+      b1pressed = true;
     }
-    if (!digitalRead(boutonP2) && winning == false) {
-        velocityP2 += 1;
+    if ( b1pressed == true ){
+      if (digitalRead(boutonP1)) {
+        b1pressed = false;
+        velocityP1 += 1;      
+      }
     }
 
+    //gestion bouton joueur 2
+    if (!digitalRead(boutonP2)) {
+      b2pressed = true;
+    }
+
+    if (b2pressed == true){
+      if (!digitalRead(boutonP2)) {
+        b2pressed = false;
+        velocityP2 += 1;
+      }
+    }
+
+
+    //gestion longueur bandeau led et comptage des tours 
     if (velocityP1 > 150) { velocityP1 = 0; tourP1 = tourP1 + 1; }
     if (velocityP2 > 150) { velocityP2 = 0; tourP2 = tourP2 + 1; }
 
+    //interruption course
     if (tourP1 == NombreTours) { EndGame(); }
     if (tourP2 == NombreTours) { EndGame(); }
 
+    // gestion de temporisation
     MillisTimer=millis();
     if (MillisTimer - oldTimer > 1000) {
       timer += 1;
       oldTimer = MillisTimer;
     }
 
+    //durée maximale de la course 1 minute. et affichage ecran lcd des infos de course
     if (timer < 60) {
       AfficherTimer();
       printBigNum(tourP1, 1, 1);
@@ -256,6 +284,7 @@ void loop() {
       EndGame();
     }
 
+    //affichage de la position des joueurs sur le bandeau de led
     pixels.clear();
 
     pixels.setPixelColor(velocityP1, pixels.Color(playerColor1.r, playerColor1.g, playerColor1.b));
